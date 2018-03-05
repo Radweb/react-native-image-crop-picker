@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = "react-native-image-crop-picker"
-  s.version      = "0.19.3"
+  s.version      = "0.20.0"
   s.summary      = "iOS/Android image picker with support for camera, configurable compression, multiple images and cropping"
   s.description  = <<-DESC
     iOS/Android image picker with support for camera, configurable compression, multiple images and cropping
