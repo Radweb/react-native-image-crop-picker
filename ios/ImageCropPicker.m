@@ -86,7 +86,8 @@ RCT_EXPORT_MODULE();
                                 @"compressVideoPreset": @"MediumQuality",
                                 @"loadingLabelText": @"Processing assets...",
                                 @"mediaType": @"any",
-                                @"showsSelectedCount": @YES
+                                @"showsSelectedCount": @YES,
+                                @"getOriginalFile": @NO
                                 };
         self.compression = [[Compression alloc] init];
     }
@@ -494,6 +495,10 @@ RCT_EXPORT_METHOD(openCropper:(NSDictionary *)options
     PHImageRequestOptions* options = [[PHImageRequestOptions alloc] init];
     options.synchronous = NO;
     options.networkAccessAllowed = YES;
+    
+    if ([[[self options] objectForKey:@"getOriginalFile"] boolValue]) {
+        options.version = PHImageRequestOptionsVersionOriginal;
+    }
 
     if ([[[self options] objectForKey:@"multiple"] boolValue]) {
         NSMutableArray *selections = [[NSMutableArray alloc] init];
@@ -537,9 +542,11 @@ RCT_EXPORT_METHOD(openCropper:(NSDictionary *)options
                      requestImageDataForAsset:phAsset
                      options:options
                      resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
+                        
+                        PHAssetResource *resource = [[PHAssetResource assetResourcesForAsset:phAsset] firstObject];
 
-                         NSURL *sourceURL = [info objectForKey:@"PHImageFileURLKey"];
-
+                        NSURL *sourceURL = [info objectForKey:@"PHImageFileURLKey"];
+            
                          dispatch_async(dispatch_get_main_queue(), ^{
                              [lock lock];
                              @autoreleasepool {
@@ -569,7 +576,11 @@ RCT_EXPORT_METHOD(openCropper:(NSDictionary *)options
                                  NSString *filePath = @"";
                                  if([[self.options objectForKey:@"writeTempFile"] boolValue]) {
 
-                                     filePath = [self persistFile:imageResult.data];
+                                     if ([[[self options] objectForKey:@"getOriginalFile"] boolValue]) {
+                                     filePath = [self persistFileWithOriginalExtension:imageResult.data originalFilename:resource.originalFilename];
+                                     } else {
+                                         filePath = [self persistFile:imageResult.data];
+                                     }
 
                                      if (filePath == nil) {
                                          [indicatorView stopAnimating];
@@ -580,7 +591,7 @@ RCT_EXPORT_METHOD(openCropper:(NSDictionary *)options
                                          return;
                                      }
                                  }
-
+                                 
                                  NSDictionary* exif = nil;
                                  if([[self.options objectForKey:@"includeExif"] boolValue]) {
                                      exif = [[CIImage imageWithData:imageData] properties];
@@ -835,7 +846,7 @@ RCT_EXPORT_METHOD(openCropper:(NSDictionary *)options
     if([[self.options objectForKey:@"includeExif"] boolValue]) {
         exif = [[CIImage imageWithData:imageResult.data] properties];
     }
-
+    
     [self dismissCropper:controller selectionDone:YES completion:[self waitAnimationEnd:^{
         self.resolve([self createAttachmentResponse:filePath
                                            withExif: exif
@@ -853,6 +864,24 @@ RCT_EXPORT_METHOD(openCropper:(NSDictionary *)options
                       ]);
     }]];
 }
+
+// Same as persist file but non breaking to allow for original file extension
+- (NSString*) persistFileWithOriginalExtension:(NSData*)data originalFilename:(NSString *)originalFilename {
+    // create temp file
+    NSString *tmpDirFullPath = [self getTmpDirectory];
+    NSString *filePath = [tmpDirFullPath stringByAppendingString:[[NSUUID UUID] UUIDString]];
+    filePath = [filePath stringByAppendingString:@"."];
+    filePath = [filePath stringByAppendingString:[originalFilename pathExtension]];
+
+    // save cropped file
+    BOOL status = [data writeToFile:filePath atomically:YES];
+    if (!status) {
+        return nil;
+    }
+
+    return filePath;
+}
+
 
 // at the moment it is not possible to upload image by reading PHAsset
 // we are saving image and saving it to the tmp location where we are allowed to access image later
