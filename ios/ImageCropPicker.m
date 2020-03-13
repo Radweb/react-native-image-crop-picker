@@ -547,8 +547,6 @@ RCT_EXPORT_METHOD(openCropper:(NSDictionary *)options
 
                         NSURL *sourceURL = [info objectForKey:@"PHImageFileURLKey"];
             
-                        NSLog(@"Absolute string: %@", sourceURL);
-
                          dispatch_async(dispatch_get_main_queue(), ^{
                              [lock lock];
                              @autoreleasepool {
@@ -849,8 +847,6 @@ RCT_EXPORT_METHOD(openCropper:(NSDictionary *)options
         exif = [[CIImage imageWithData:imageResult.data] properties];
     }
     
-    NSURL *assetUrl = [NSURL URLWithString:filePath];
-
     [self dismissCropper:controller selectionDone:YES completion:[self waitAnimationEnd:^{
         self.resolve([self createAttachmentResponse:filePath
                                            withExif: exif
